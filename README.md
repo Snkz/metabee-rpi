@@ -11,3 +11,4 @@ Software Requires:
 * bcm2835 driver (version 1.40 works, 1.42 seems broken on arm currently)
 * spi module loaded (check your /boot/config.txt to see if its enabled)
 
+![electrical equivalent of uncommented code](https://raw.github.com/snkz/metabee-rpi/master/mess.jpg) 
