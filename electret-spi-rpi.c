@@ -1,3 +1,14 @@
+/*
+ * Read SPI values from what is assumed to be an electret mic attached to CH0
+ * Detects peak sound and prints 1
+ * usage: program [buffer] [threshold] [window]
+ * buffer => min difference between neighbouring values
+ * threshold => min value crossed to be considered spike
+ * window => range of values to consider (always check midvalue of window range)
+ *
+ * Author: Abdi Dahir
+ */
+
 #include <bcm2835.h> //BCM stuff by Mike McCauley
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,6 +24,25 @@ int main(int argc, char **argv) {
     if (!bcm2835_init())
         return 1;
 
+    int window_size = 64;
+    int BUFFER = 100;
+    int THRESH = 400;
+
+    // arg bs
+    if (argc > 1)
+        BUFFER = atoi(argv[1]);
+
+    if (argc > 2)
+        THRESH = atoi(argv[2]);
+
+    if (argc > 3)
+        window_size = atoi(argv[3]);
+
+    if (argc > 4) {
+        printf("usage: %s [buffer] [threshold] [window]\n", argv[0]);
+        return 1;
+    }
+
     // She cleans up nice
     struct sigaction action;
     memset(&action, 0, sizeof(struct sigaction));
@@ -21,8 +51,6 @@ int main(int argc, char **argv) {
     sigaction(SIGINT, &action, NULL);
     sigaction(SIGQUIT, &action, NULL);
 
-    int BUFFER = 100;
-    int THRESH = 400;
     int num_claps;
     //if (argc < 3)
     //    return 1;
@@ -46,7 +74,8 @@ int main(int argc, char **argv) {
 
         bcm2835_spi_transfern(data, sizeof(data));
 
-        response = ((data[1] << 8) & 0b1100000000) | (data[2] & 0b11111111);
+        // byte 0 & 1 of data[1] == byte 8 & 9 of 10bit response
+        response = ((data[1] << 8) & 0b1100000000) | data[2];
 
         window[0] = window[1];
         window[1] = window[2];
