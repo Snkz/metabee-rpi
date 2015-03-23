@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <signal.h>
 #include <string.h>
+#include <fcntl.h>
 
 void sigterm(int signum) {
     bcm2835_spi_end();
@@ -43,6 +44,10 @@ int main(int argc, char **argv) {
         return 1;
     }
 
+    int g27 = open("/sys/class/gpio/gpio27/value", O_WRONLY);
+    if (g27 == -1) 
+        return 1;
+
     // She cleans up nice
     struct sigaction action;
     memset(&action, 0, sizeof(struct sigaction));
@@ -51,9 +56,8 @@ int main(int argc, char **argv) {
     sigaction(SIGINT, &action, NULL);
     sigaction(SIGQUIT, &action, NULL);
 
-    int num_claps;
-    //if (argc < 3)
-    //    return 1;
+    int num_claps = 0;
+    
     bcm2835_spi_begin();
     bcm2835_spi_setDataMode(BCM2835_SPI_MODE0);                   
     bcm2835_spi_setBitOrder(BCM2835_SPI_BIT_ORDER_MSBFIRST);      
@@ -67,6 +71,9 @@ int main(int argc, char **argv) {
     unsigned char data[3];
     int window[5] = {0, 0, 0, 0, 0};
     int response = 0;
+    int toggle = 0;
+    char toggle_buf[8];
+    ssize_t size;
     while (THRESH) {
         data[0] = 1;  //  first byte transmitted -> start bit 
         data[1] = (1 << 7); // second byte choose channel i.e (1 0 0 0 == CH0) 4 nibbles, refer to SPI chart
@@ -88,11 +95,15 @@ int main(int argc, char **argv) {
                 && (window[1] < window[2] - BUFFER/2) && (window[3] < window[2] - BUFFER/2)
                 && (window[0] < window[2] - BUFFER) && (window[4] < window[2] - BUFFER)) {
             num_claps++;
-            printf("CLAP %d, response: %d %d rsp:%d %d %d\n", 
-                    num_claps, window[0], window[1], window[2], window[3], window[4]);
 
-            window[0] = window[1] = window[2] = window[3] = window[4] = 0;
-            usleep(100);
+            toggle = (toggle + 1) % 2;
+            size = snprintf(toggle_buf, 8, "%d", toggle);
+            write(g27, toggle_buf, size);
+
+            fprintf(stderr, "CLAP %d, response: %d %d rsp:%d %d %d\n", 
+                    num_claps, window[0], window[1], window[2], window[3], window[4]);
+            sleep(1);
+
         }
 
     }
